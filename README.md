@@ -1,97 +1,123 @@
 # AI Test Case Generator (Ollama Edition)
 
-Công cụ sinh test case tự động bằng AI, chạy **100% cục bộ qua Ollama** - không cần API key, không cần Internet sau khi tải model, không giới hạn quota.
-
-## Kiến trúc Pipeline
+Công cụ sinh test case tự động bằng AI, chạy **100% cục bộ qua Ollama**
+- không cần API key, không cần Internet sau khi đã tải model, không
+giới hạn quota. Theo đúng kiến trúc pipeline:
 
 ```
 Domain
-  ↓
-[1-2] Website Crawler (Playwright)
-  └─ Crawl HTML + DOM
-  └─ Page Understanding (DOM Tree, Accessibility Tree, JS Events, Network)
-  ↓
-[3] Feature Extraction
-  └─ Chuyển dữ liệu thô thành danh sách Feature chuẩn hoá
-  ↓
-[4] LLM - Website Type Detection
-  └─ Phân loại loại hình website
-  ↓
-[5] Requirement Inference
-  └─ Chuẩn hoá yêu cầu nghiệp vụ
-  ↓
-[5.5] Use Case Synthesis
-  └─ Gom yêu cầu thành Use Case ở mức nghiệp vụ
-  ↓
-[6] Test Case Generation
-  └─ Sinh 7+ loại test case
-  ↓
-[7] Export
-  └─ Excel / JSON / Jira / TestRail
+  -> Website Crawler (Playwright)        (crawler.py)
+  -> Crawl HTML + DOM
+  -> Page Understanding                  (crawler.py)
+       - DOM Tree
+       - Accessibility Tree
+       - JS Events
+       - Network Requests
+  -> Feature Extraction                  (feature_extractor.py)
+  -> LLM (Ollama - model cục bộ)         (llm_service.py)
+  -> Infer Requirements                  (requirement_engine.py)
+  -> Generate Test Cases                 (testcase_generator.py)
+  -> Export: Excel / Jira / TestRail     (exporter.py)
 ```
 
-## Cài đặt
+## 1. Cài Ollama (chỉ 1 lần)
 
-### 1. Cài Ollama
+Tải và cài tại https://ollama.com/download. Sau khi cài, Ollama tự
+chạy nền (icon khay hệ thống). Kiểm tra:
 
-Tải tại https://ollama.com/download
-
-Kiểm tra:
 ```bash
 ollama list
 ```
 
-Tải model:
+Tải model để dùng (mặc định project dùng `qwen2.5:7b`, ~4.9GB):
+
 ```bash
 ollama pull qwen2.5:7b
 ```
 
-### 2. Cài đặt Project
+Muốn dùng model khác (nhẹ hơn, nhanh hơn với máy yếu, hoặc chất lượng
+cao hơn với máy mạnh) thì `ollama pull <model>` rồi sửa `OLLAMA_MODEL`
+trong `.env`. Vài lựa chọn phổ biến: `qwen2.5`, `gemma2`, `llama3.2`,
+`mistral`, `phi3`.
+
+## 2. Cài đặt project
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # hoặc .venv\\Scripts\\activate trên Windows
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 3. Chạy
+`.env` mặc định đã trỏ tới `OLLAMA_MODEL=qwen2.5:7b` tại
+`http://localhost:11434` - không cần sửa gì nếu đã làm đúng bước 1.
+
+## 3. Chạy
 
 ```bash
 python app.py
 ```
 
-Nhập URL website cần phân tích.
+Nhập URL website cần phân tích. Chương trình kiểm tra kết nối Ollama
+NGAY từ đầu (báo lỗi rõ ràng nếu Ollama chưa chạy hoặc model chưa
+pull), sau đó tự chạy hết pipeline và xuất file
+`output/AI_TestCase_Report_<timestamp>.xlsx`.
 
-## Các Tính Năng Chính
+## LLM: Ollama - vì sao nhanh và ổn định
 
-### 🎯 Bám sát Dữ liệu Thật
-- Mỗi Requirement có field `elements` chứa dữ liệu crawl thật
-- Mỗi Test Case có field `element_ref` để truy vết
-- Grounding rule yêu cầu LLM chỉ dùng dữ liệu có sẵn
+Khác với gọi API cloud (Groq/OpenAI/OpenRouter), module `llm_service.py`
+gọi thẳng REST API **gốc** của Ollama (`/api/chat`), tận dụng 3 tính
+năng giúp nhanh + ổn định hơn hẳn:
 
-### ⚡ Tối ưu Tốc độ
-- `format="json"` ép Ollama trả JSON hợp lệ
-- `keep_alive` giữ model trong RAM/VRAM
-- Cache kết quả LLM trên đĩa
+| Tính năng | Lợi ích |
+|---|---|
+| `format="json"` | Ép Ollama LUÔN trả JSON hợp lệ cú pháp, giảm hẳn lỗi parse do model tự chèn markdown/giải thích |
+| `keep_alive` | Giữ model trong RAM/VRAM giữa các lần gọi (mặc định 30 phút) - tránh phải load lại model (5-30s) mỗi lần, rất đáng kể khi pipeline gọi LLM hàng chục lần |
+| `options.num_ctx` | Set rõ context window (8192 mặc định) - Ollama mặc định chỉ 2048 token nếu không set, dễ cắt mất dữ liệu input dài |
 
-### 🔧 Export Linh Hoạt
-- **Excel**: 3 sheet chuyên sâu
-- **JSON**: Payload trung gian
-- **Jira Cloud**: Đẩy trực tiếp
-- **TestRail**: Đẩy trực tiếp
+Vì chạy cục bộ, không bị giới hạn token/phút hay token/ngày như gói
+Free của dịch vụ cloud, nên batch size mỗi lần gọi LLM (`LLM_CHUNK_SIZE`,
+`TESTCASE_CHUNK_SIZE` trong `.env`) có thể để lớn hơn hẳn, giảm số lần
+gọi LLM (ít round-trip hơn = nhanh hơn) mà vẫn ổn định.
 
-## Troubleshooting
+Chương trình còn giữ cơ chế cache kết quả LLM trên đĩa (`cache/llm_cache/`):
+nếu bị dừng giữa chừng, chạy lại sẽ tự "resume" đúng chỗ, không gọi lại
+LLM cho phần đã xong.
 
-### "Không kết nối được tới Ollama"
-- Kiểm tra `ollama serve` đang chạy
-- Kiểm tra `OLLAMA_BASE_URL` trong `.env`
+### Tinh chỉnh tốc độ / chất lượng qua `.env`
 
-### "Model not found"
-- Chạy `ollama pull qwen2.5:7b`
-- Hoặc đổi `OLLAMA_MODEL` trong `.env`
+- Máy yếu, muốn chạy nhanh hơn: giảm `OLLAMA_NUM_CTX` (vd `4096`), dùng
+  model nhẹ hơn (`OLLAMA_MODEL=llama3.2` hoặc `phi3`).
+- Máy mạnh (GPU rời, nhiều RAM), muốn chất lượng cao hơn: tăng
+  `OLLAMA_NUM_CTX` (vd `16384`), dùng model lớn hơn.
+- Muốn có model dự phòng khi model chính lỗi: khai báo
+  `OLLAMA_FALLBACK_MODELS=qwen2.5,gemma2` (đã `ollama pull` sẵn).
 
-## License
+## Bám sát website thật (chống LLM tự đoán/bịa)
 
-MIT
+Bản này đã sửa lại toàn bộ pipeline để test case luôn bám sát dữ liệu
+**đã crawl thật** từ website, thay vì để LLM tự suy diễn:
+
+1. **`crawler.py`**: đã bổ sung thu thập `select`/`textarea` thật (trước
+   đây bị thiếu hoàn toàn).
+2. **`feature_extractor.py`**: mỗi `Requirement` giờ có thêm field
+   `elements` - danh sách dữ liệu THÔ (name/id/placeholder/href/text/
+   action/url...) lấy trực tiếp từ DOM thật.
+3. **`llm_service.py`**: mọi prompt gửi cho LLM giờ có thêm
+   `_GROUNDING_RULE` - yêu cầu bắt buộc LLM chỉ được dùng đúng dữ liệu
+   trong `elements`.
+4. **Excel report**: các sheet có thêm cột "Bằng chứng từ website"
+   để người review đối chiếu trực tiếp với trang web.
+
+## Export: Excel / Jira / TestRail
+
+Đặt `EXPORT_TARGET` trong `.env`:
+
+| Giá trị | Kết quả |
+|---|---|
+| `excel` (mặc định) | File `.xlsx` 3 sheet trong `output/` |
+| `json` | Payload JSON trung gian |
+| `jira` | Đẩy trực tiếp mỗi test case thành 1 issue trên Jira Cloud |
+| `testrail` | Đẩy trực tiếp mỗi test case thành 1 case trên TestRail |

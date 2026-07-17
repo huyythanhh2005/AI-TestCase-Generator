@@ -52,7 +52,6 @@ def main():
         return
 
     try:
-        # Step 1-2: CRAWLER
         print("\n" + "=" * 80)
         print("BƯỚC 1-2: PLAYWRIGHT CRAWLER -> PAGE UNDERSTANDING")
         print("=" * 80)
@@ -66,35 +65,30 @@ def main():
             f"JS_Events={stats.get('js_events', 0)}"
         )
 
-        # Step 3: FEATURE EXTRACTION
         print("\n" + "=" * 80)
         print("BƯỚC 3: FEATURE EXTRACTION")
         print("=" * 80)
         features = FeatureExtractor().extract(page_data)
         print(f"✓ Trích xuất {len(features)} feature.")
 
-        # Step 4: WEBSITE TYPE DETECTION
         print("\n" + "=" * 80)
         print("BƯỚC 4: LLM - PHÂN LOẠI NGHIỆP VỤ WEBSITE")
         print("=" * 80)
         website_type = llm.detect_website_type(page_data) or "General"
         print(f"✓ Loại hình Website: {website_type.upper()}")
 
-        # Step 5: REQUIREMENT INFERENCE
         print("\n" + "=" * 80)
         print("BƯỚC 5: REQUIREMENT INFERENCE (LLM chuẩn hoá yêu cầu)")
         print("=" * 80)
         requirements = RequirementEngine(llm).infer(features, website_type)
         print(f"✓ Suy luận {len(requirements)} yêu cầu nghiệp vụ.")
 
-        # Step 5.5: USE CASE SYNTHESIS
         print("\n" + "=" * 80)
         print("BƯỚC 5.5: USE CASE SYNTHESIS (gom yêu cầu thành Use Case)")
         print("=" * 80)
         use_cases = UseCaseEngine(llm).infer(requirements, website_type)
         print(f"✓ Tổng hợp {len(use_cases)} use case.")
 
-        # Step 6: TEST CASE GENERATION
         print("\n" + "=" * 80)
         print("BƯỚC 6: TEST CASE GENERATION")
         print("=" * 80)
@@ -105,7 +99,6 @@ def main():
             return
         print(f"✓ Đã sinh {len(testcases)} test case.")
 
-        # Link test case với use case
         feature_to_uc = {}
         for uc in use_cases:
             for feat in uc.get("related_features", []):
@@ -115,7 +108,6 @@ def main():
                 str(tc.get("feature", "")).strip().lower(), ""
             )
 
-        # Step 7: EXPORT
         print("\n" + "=" * 80)
         print("BƯỚC 7: EXPORT")
         print("=" * 80)
@@ -153,6 +145,7 @@ def main():
     except Exception as e:
         print(f"\n[LỖI NGHIÊM TRỌNG]: {e}")
         import traceback
+
         traceback.print_exc()
 
 

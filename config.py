@@ -23,6 +23,7 @@ for folder in (OUTPUT_DIR, SCREENSHOT_DIR, LOG_DIR, CACHE_DIR):
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
 OLLAMA_FALLBACK_MODELS = [
     m.strip()
     for m in os.getenv("OLLAMA_FALLBACK_MODELS", "").split(",")
@@ -44,8 +45,7 @@ OLLAMA_NUM_BATCH = int(os.getenv("OLLAMA_NUM_BATCH", "512"))
 OLLAMA_NUM_PREDICT = int(os.getenv("OLLAMA_NUM_PREDICT", "6144"))
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "6144"))
 MAX_RETRY = int(os.getenv("MAX_RETRY", "3"))
-REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "600"))
-
+REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "180"))
 OLLAMA_OPTIONS = {
     "temperature": TEMPERATURE,
     "top_p": TOP_P,
@@ -55,10 +55,11 @@ OLLAMA_OPTIONS = {
     "num_thread": OLLAMA_NUM_THREAD,
     "num_gpu": OLLAMA_NUM_GPU,
     "num_batch": OLLAMA_NUM_BATCH,
+    "num_keep": -1,
     "seed": OLLAMA_SEED,
 }
 
-LLM_CHUNK_SIZE = int(os.getenv("LLM_CHUNK_SIZE", "5"))
+LLM_CHUNK_SIZE = int(os.getenv("LLM_CHUNK_SIZE", "15"))
 TESTCASE_CHUNK_SIZE = int(os.getenv("TESTCASE_CHUNK_SIZE", "3"))
 
 # ==========================================================
@@ -69,15 +70,17 @@ HEADLESS = os.getenv("HEADLESS", "true").lower() != "false"
 VIEWPORT = {"width": 1920, "height": 1080}
 PAGE_TIMEOUT = int(os.getenv("PAGE_TIMEOUT", "60000"))
 WAIT_TIME = int(os.getenv("WAIT_TIME", "2000"))
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/138.0 Safari/537.36"
 )
+
 CAPTURE_ACCESSIBILITY_TREE = True
 
 # ==========================================================
-# Crawler - đa trang
+# Crawler - đa trang (tuỳ chọn)
 # ==========================================================
 
 MAX_PAGES = int(os.getenv("MAX_PAGES", "5"))
@@ -89,6 +92,7 @@ CRAWL_INTERNAL_PAGES = os.getenv("CRAWL_INTERNAL_PAGES", "false").lower() == "tr
 
 MIN_TESTCASE = int(os.getenv("MIN_TESTCASE", "30"))
 REMOVE_DUPLICATE = True
+
 STRICT_GROUNDING = os.getenv("STRICT_GROUNDING", "true").lower() == "true"
 
 ENABLE_NEGATIVE_TEST = True
